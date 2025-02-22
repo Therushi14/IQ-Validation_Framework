@@ -7,7 +7,6 @@ from sentence_transformers import SentenceTransformer
 import nltk
 from nltk.tokenize import word_tokenize
 
-nltk.download('punkt')
 
 class QuestionSimilarityModel:
     def __init__(self, dataset_path, cache_path='embeddings_cache.pkl'):
@@ -18,7 +17,8 @@ class QuestionSimilarityModel:
         self.embeddings = self._load_or_generate_embeddings()
 
     def _generate_embeddings(self, questions):
-        return self.model.encode(questions.tolist(), convert_to_tensor=True)
+        combined_text = questions.apply(lambda x: f"{x['title']} Difficulty: {x['difficulty']}", axis=1)
+        return self.model.encode(combined_text.tolist(), convert_to_tensor=True)
 
     def _load_or_generate_embeddings(self):
         if os.path.exists(self.cache_path):
@@ -27,7 +27,7 @@ class QuestionSimilarityModel:
                 return pickle.load(f)
         else:
             print("Generating new embeddings...")
-            embeddings = self._generate_embeddings(self.dataset['question'])
+            embeddings = self._generate_embeddings(self.dataset)
             with open(self.cache_path, 'wb') as f:
                 pickle.dump(embeddings, f)
             return embeddings
@@ -43,17 +43,24 @@ class QuestionSimilarityModel:
             new_embedding = self.model.encode(preprocessed, convert_to_tensor=True)
             similarities = cosine_similarity([new_embedding], self.embeddings)[0]
             max_score = np.max(similarities)
+            max_index = np.argmax(similarities)
             matched_indices = np.where(similarities >= 0.7)[0]  # Threshold for strong match
-            matched_sources = self.dataset.iloc[matched_indices]['question'].tolist()
+            matched_sources = self.dataset.iloc[matched_indices][['title', 'difficulty']].to_dict('records')
+            best_match = self.dataset.iloc[max_index]
             results.append({
                 'input_question': question,
                 'relevance_score': float(max_score),
-                'matched_sources': matched_sources
+                'matched_sources': matched_sources,
+                'best_match': {
+                    'index': int(max_index),
+                    'title': best_match['title'],
+                    'difficulty': best_match['difficulty']
+                }
             })
         return results
 
 # Example usage:
-# model = QuestionSimilarityModel('leetcode_dataset.csv')
-# new_questions = ["Find the longest palindrome in a string", "Implement a binary search algorithm"]
-# result = model.check_similarity(new_questions)
-# print(result)
+model = QuestionSimilarityModel('dataset/leetcode_dataset.csv')
+new_questions = ["If john throws a ball at the speed of 5m/s vertically upwards, find the time it first reaches ground", "Implement a binary search algorithm"]
+result = model.check_similarity(new_questions)
+print(result)

@@ -4,9 +4,8 @@ import os
 from datetime import datetime
 import pandas as pd
 
-
-
 PROJECTS_DIR = "projects"
+DATASET_DIR = "dataset"
 
 # Ensure projects directory exists
 if not os.path.exists(PROJECTS_DIR):
@@ -31,7 +30,7 @@ def save_project(project_name, data):
 def initialize_project(project_name):
     data = {
         "project_name": project_name,
-        "assertions": {"deterministic": [], "factual": [], "misc": []},
+        "assertions": {"deterministic": [], "misc": [], "factual": False, "contains-sql": False},
         "log_history": [],
         "accuracy_history": []
     }
@@ -72,17 +71,43 @@ if "current_project" in st.session_state:
     st.title(f"📊 Project: {project['project_name']}")
 
     # Assertions Section
-    st.header("✅ Assertions")
-    assertion_type = st.selectbox("Assertion Type", ["deterministic", "factual", "misc"])
-    new_assertion = st.text_input("Add New Assertion")
-    if st.button("Add Assertion") and new_assertion:
-        project["assertions"][assertion_type].append(new_assertion)
-        save_project(project["project_name"], project)
-        st.success("Assertion added.")
+    st.header("Add new assertions")
+    assertion_type = st.selectbox("Assertion Type", ["deterministic", 'factual', "misc"])
+
+    if assertion_type == "deterministic":
+        check_type = st.selectbox("Select Deterministic Check Type", ["regex", "json_format", "contains", "not-contains"])
+        check_value = st.text_area("Enter pattern")
+        if st.button("Add Deterministic Assertion") and check_value:
+            assertion_data = {
+                "check_type": check_type,
+                "value": check_value,
+            }
+            project["assertions"]["deterministic"].append(assertion_data)
+            save_project(project["project_name"], project)
+            st.success("Deterministic Assertion added.")
+
+    elif assertion_type == "factual":
+        fact = st.file_uploader("Provide knowledgebase for factual assertion", type=["pdf", "docx"])
+        if st.button("Add") and fact:
+            project_id = project["project_name"]
+            file_extension = os.path.splitext(fact.name)[1]
+            # current working dir
+            saved_path = os.path.join(os.getcwd(), DATASET_DIR, f"{project_id}{file_extension}")
+            with open(saved_path, "wb") as f:
+                f.write(fact.getbuffer())
+            project["assertions"]["knowledgebase"] = saved_path
+            st.success("Factual Assertion added and file saved.")
+
+    elif assertion_type == "misc":
+        new_assertion = st.text_input("Add Miscellaneous Assertion")
+        if st.button("Add Miscellaneous Assertion") and new_assertion:
+            project["assertions"]["misc"].append(new_assertion)
+            save_project(project["project_name"], project)
+            st.success("Miscellaneous Assertion added.")
 
     st.subheader("Current Assertions")
     for a_type, assertions in project["assertions"].items():
-        st.write(f"**{a_type.capitalize()} Assertions:**")
+        st.write(f"**{a_type.capitalize()} Assertions:**" if len(assertions) > 0 else "") 
         for assertion in assertions:
             st.write(f"- {assertion}")
 
@@ -111,7 +136,7 @@ if "current_project" in st.session_state:
 
     if st.button("Simulate Accuracy Update"):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        accuracy = round(50 + 50 * (os.urandom(1)[0] / 255), 2)  # Random accuracy
+        accuracy = round(50 + 50 * (os.urandom(1)[0] / 255), 2)
         project["accuracy_history"].append([timestamp, accuracy])
         save_project(project["project_name"], project)
         st.experimental_rerun()

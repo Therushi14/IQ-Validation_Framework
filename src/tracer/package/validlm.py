@@ -7,7 +7,7 @@ import re
 import subprocess
 from functools import wraps
 
-from langchain.chat_models import ChatGroq
+from langchain_groq import ChatGroq
 
 from langchain.prompts import ChatPromptTemplate
 
@@ -22,7 +22,7 @@ class ValidLM:
         self.assertion_file = f"{project_name}_assertions.json"
         self.knowledge_base = None  # Could be a link, PDF, or CSV
         self._initialize_assertions()
-        self._start_streamlit_ui()
+        # self._start_streamlit_ui()
 
     def _initialize_assertions(self):
         """Create an empty assertions file if not exists"""

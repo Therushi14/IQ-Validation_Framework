@@ -3,11 +3,52 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 from rake_nltk import Rake
+import nltk
 import importlib.util
 import sys
 import subprocess
 import logging
 import re
+import os
+
+class NLTKResourceManager:
+    """Manages NLTK resource initialization and verification"""
+    
+    REQUIRED_RESOURCES = [
+        ('tokenizers/punkt', 'punkt'),
+        ('corpora/stopwords', 'stopwords'),
+        ('tokenizers/punkt_tab', 'punkt_tab')
+    ]
+    
+    @staticmethod
+    def initialize_nltk_resources() -> None:
+        """Initialize all required NLTK resources with proper error handling"""
+        
+        def verify_resource(resource_path: str) -> bool:
+            try:
+                nltk.data.find(resource_path)
+                return True
+            except LookupError:
+                return False
+        
+        # Create nltk_data directory in user's home if it doesn't exist
+        nltk_data_dir = os.path.expanduser('~/nltk_data')
+        os.makedirs(nltk_data_dir, exist_ok=True)
+        
+        # Ensure NLTK uses the correct data directory
+        nltk.data.path.append(nltk_data_dir)
+        
+        # Download missing resources
+        for resource_path, resource_name in NLTKResourceManager.REQUIRED_RESOURCES:
+            if not verify_resource(resource_path):
+                print(f"Downloading {resource_name}...")
+                nltk.download(resource_name, quiet=True)
+                
+                # Verify successful download
+                if not verify_resource(resource_path):
+                    raise RuntimeError(f"Failed to download NLTK resource: {resource_name}")
+                
+        print("All NLTK resources successfully initialized")
 
 class EnhancedRelevanceAnalyzer:
     """
@@ -22,6 +63,7 @@ class EnhancedRelevanceAnalyzer:
             ngram_range=(1, 3),
             max_features=5000
         )
+        NLTKResourceManager.initialize_nltk_resources()
         self.semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
         self.keyword_extractor = Rake()
         
@@ -62,7 +104,8 @@ class EnhancedRelevanceAnalyzer:
         # Extract key phrases using RAKE
         self.keyword_extractor.extract_keywords_from_text(job_description)
         jd_keywords = set(self.keyword_extractor.get_ranked_phrases()[:20])
-        
+        print('HEYY')
+        print(jd_keywords)
         # Extract entities if spaCy is available
         jd_entities = set()
         if self.nlp:
