@@ -1,10 +1,17 @@
 from groq import Groq
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class GroqClient:
     def __init__(self):
-        self.client = Groq(api_key=os.getenv("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"))
-    
+        api_key = os.getenv("GROQ_API_KEY")  
+        if not api_key:
+            raise ValueError("API key not found. Please set GROQ_API_KEY in the .env file.")
+
+        self.client = Groq(api_key=api_key)
+
     def generate_questions(self, job_role, job_description):
         prompt = self._build_prompt(job_role, job_description)
         
