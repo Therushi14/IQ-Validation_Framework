@@ -39,7 +39,8 @@ class GroqClient:
         - Include questions that evaluate soft skills, teamwork, communication, problem-solving approaches, and cultural fit.
 
         Format requirements:
-        - Each question should be numbered.
-        - Separate technical and behavioral sections.
-        - Avoid any markdown formatting.
+        1. Each question must be numbered starting with 'Q1'
+        2. Put each question on a new line
+        3. First list technical questions, then behavioral
+        4. Do not include any section headers
         """
