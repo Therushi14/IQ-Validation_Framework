@@ -3,3 +3,9 @@ python-docx
 PyPDF2
 groq
 python-dotenv
+sentence_transformers
+nltk
+logging
+subprocess
+langchain
+pandas
