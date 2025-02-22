@@ -30,7 +30,7 @@ def save_project(project_name, data):
 def initialize_project(project_name):
     data = {
         "project_name": project_name,
-        "assertions": {"deterministic": [], "misc": [], "factual": False, "contains-sql": False},
+        "assertions": {"deterministic": [], "misc": [], "factual": "", "contains-sql": False},
         "log_history": [],
         "accuracy_history": []
     }
@@ -107,6 +107,9 @@ if "current_project" in st.session_state:
 
     st.subheader("Current Assertions")
     for a_type, assertions in project["assertions"].items():
+        if (a_type == 'factual' or a_type == "contains-sql"):
+            st.write(f"**{a_type.capitalize()}: {assertions}**")
+            continue
         st.write(f"**{a_type.capitalize()} Assertions:**" if len(assertions) > 0 else "") 
         for assertion in assertions:
             st.write(f"- {assertion}")

@@ -1,5 +1,3 @@
-# un-tested
-
 import json
 import os
 import logging
@@ -7,8 +5,8 @@ import re
 import subprocess
 from functools import wraps
 
+from tools.tools import verify_sql_query
 from langchain_groq import ChatGroq
-
 from langchain.prompts import ChatPromptTemplate
 
 # Configure logging
@@ -17,18 +15,42 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 class ValidLM:
     """Validation & Logging System for LLM Applications"""
 
+    PROJECTS_DIR = "projects"  # Define the directory for project files
+
     def __init__(self, project_name="default_project"):
         self.project_name = project_name
-        self.assertion_file = f"{project_name}_assertions.json"
+        self.project_file = os.path.join(self.PROJECTS_DIR, f"{project_name}.json")
         self.knowledge_base = None  # Could be a link, PDF, or CSV
-        self._initialize_assertions()
-        # self._start_streamlit_ui()
+        self._initialize_project()
+        # self._start_streamlit_ui
 
-    def _initialize_assertions(self):
-        """Create an empty assertions file if not exists"""
-        if not os.path.exists(self.assertion_file):
-            with open(self.assertion_file, "w") as f:
-                json.dump({"deterministic": [], "factual": [], "misc": []}, f)
+    def _initialize_project(self):
+        """Create an empty project file if it doesn't exist"""
+        if not os.path.exists(self.project_file):
+            initial_data = {
+                "project_name": self.project_name,
+                "assertions": {
+                    "deterministic": [],
+                    "misc": [],
+                    "factual": False,
+                    "contains-sql": False,
+                    "knowledgebase": None
+                },
+                "log_history": [],
+                "accuracy_history": []
+            }
+            with open(self.project_file, "w") as f:
+                json.dump(initial_data, f, indent=4)
+
+    def _load_project(self):
+        """Load the project data from the JSON file"""
+        with open(self.project_file, "r") as f:
+            return json.load(f)
+
+    def _save_project(self, data):
+        """Save the project data to the JSON file"""
+        with open(self.project_file, "w") as f:
+            json.dump(data, f, indent=4)
 
     def _start_streamlit_ui(self):
         """Start Streamlit UI in the background"""
@@ -42,30 +64,27 @@ class ValidLM:
         )
         print(f"✅ Streamlit UI started for project '{self.project_name}'")
 
-    def _load_assertions(self):
-        """Load assertions from the JSON file"""
-        with open(self.assertion_file, "r") as f:
-            return json.load(f)
-
-    def _save_assertions(self, assertions):
-        """Save assertions to the JSON file"""
-        with open(self.assertion_file, "w") as f:
-            json.dump(assertions, f, indent=4)
 
     def add_assertion(self, assertion_type, assertion):
-        """Add an assertion to the JSON file"""
-        valid_types = {"deterministic", "factual", "misc"}
+        """Add an assertion to the project file"""
+        valid_types = {"deterministic", "factual", "misc", "contains-sql", "knowledgebase"}
         if assertion_type not in valid_types:
             raise ValueError(f"Invalid assertion type. Choose from {valid_types}")
 
-        assertions = self._load_assertions()
-        assertions[assertion_type].append(assertion)
-        self._save_assertions(assertions)
+        project_data = self._load_project()
+        if assertion_type in {"factual", "contains-sql"}:
+            project_data["assertions"][assertion_type] = assertion
+        elif assertion_type == "knowledgebase":
+            project_data["assertions"]["knowledgebase"] = assertion
+        else:
+            project_data["assertions"][assertion_type].append(assertion)
+
+        self._save_project(project_data)
         logging.info(f"Added {assertion_type} assertion: {assertion}")
 
-    def generate_clarifying_questions(self, user_input): 
+    def generate_clarifying_questions(self, user_input):
         """Generate clarifying questions using ChatGroq in JSON mode."""
-        llm = ChatGroq(temperature=0, response_format="json") 
+        llm = ChatGroq(temperature=0, response_format="json")
 
         prompt = ChatPromptTemplate.from_template("""
         Given the user prompt: "{user_input}", generate clarifying multiple-choice questions
@@ -87,8 +106,7 @@ class ValidLM:
         """)
 
         response = llm.predict(prompt.format(user_input=user_input))
-    
-        # Parse JSON response
+
         try:
             clarifying_questions = json.loads(response)
             self.clarifying_questions = clarifying_questions
@@ -98,25 +116,23 @@ class ValidLM:
             self.clarifying_questions = []
             return []
 
-
-    def predefined_output_format_questions():
-        """Predefined questions about the output format for deterministic validation"""
-        return [
-            "Specify JSON format of the output",
-            "Specify required keyword in the output",
-            "Should the output be in SQL format?",
-            "Specify the regex format of the output"
-        ]
-    
     def verify_assertions(self, user_input, llm_output):
-        """Run checks against stored assertions"""
-        assertions = self._load_assertions()
-        results = self.clarifying_questions
 
-        # 🔵 Deterministic Assertions (Regex, format-based)
+
+        """Run checks against stored assertions"""
+        # 1. Deterministic
+        # 2. Fact correction
+        # 3. Misc check via llm
+        # 4. Behaviour check
+
+        project_data = self._load_project()
+        assertions = project_data["assertions"]
+        results = {"deterministic": [], "factual": [], "misc": []}
+
+        # 🔵 Deterministic Assertions
         for assertion in assertions["deterministic"]:
-            pattern = assertion.get("pattern")
-            check_type = assertion.get("type")  # regex, contains, etc.
+            pattern = assertion.get("value")
+            check_type = assertion.get("check_type")
 
             if check_type == "regex":
                 match = re.search(pattern, llm_output) is not None
@@ -131,44 +147,47 @@ class ValidLM:
                 except json.JSONDecodeError:
                     match = False
             elif check_type == "sql_format":
-                match = llm_output.strip().lower().startswith("select")
+                match = verify_sql_query(llm_output)
             else:
                 match = False
 
             results["deterministic"].append((assertion, match))
 
-            # 🟡 Factual Assertions (Knowledge Base Parsing)
-            if self.knowledge_base:
-                for assertion in assertions["factual"]:
-                    fact = assertion.get("fact")
-                    match = fact in self.knowledge_base  # Simplified check
-                    results["factual"].append((fact, match))
-            else:
-                for assertion in assertions["factual"]:
-                    results["factual"].append((assertion, "Knowledge Base Missing"))
+        # 🟡 Factual Assertions ############################# use module 3
+        if assertions["factual"] and assertions["knowledgebase"]:
+            # Load and parse the knowledge base (PDF, etc.) here for comparison
+            kb_path = assertions["knowledgebase"]
+            # Placeholder for actual factual verification
+            for fact in ["sample fact"]:
+                match = fact in llm_output
+                results["factual"].append((fact, match))
+        else:
+            results["factual"].append(("Knowledge Base Missing or Disabled", False))
 
-            # 🟢 Miscellaneous Assertions (LLM Verification)
-            for assertion in assertions["misc"]:
-                # Example: Using LLM for context validation (placeholder)
-                validation = "complex check passed"  # Replace with LLM call if needed
-                results["misc"].append((assertion, validation))
+        # 🟢 Miscellaneous Assertions
+        for assertion in assertions["misc"]:    #########################
+            validation = "complex check passed"  # Placeholder for complex checks
+            results["misc"].append((assertion, validation))
 
-            return results
-    
-    def trace(self, func):
-        """Decorator for tracing function calls and verifying LLM responses"""
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            user_input = args[0] if args else None
-            logging.info(f"Executing {func.__name__} with input: {user_input}")
+        return results
 
-            result = func(*args, **kwargs)  # Run LLM function
-            logging.info(f"Received Output: {result}")
+    # def trace(self, func):
+    #     """Decorator for tracing function calls and verifying LLM responses"""
+    #     @wraps(func)
+    #     def wrapper(*args, **kwargs):
+    #         user_input = args[0] if args else None
+    #         logging.info(f"Executing {func.__name__} with input: {user_input}")
 
-            # Verify assertions
-            verification_results = self.verify_assertions(user_input, result)
-            logging.info(f"Verification Results: {verification_results}")
+    #         result = func(*args, **kwargs)
+    #         logging.info(f"Received Output: {result}")
 
-            return result
-        return wrapper
+    #         verification_results = self.verify_assertions(user_input, result)
+    #         logging.info(f"Verification Results: {verification_results}")
 
+    #         # Update accuracy history
+    #         project_data = self._load_project()
+    #         project_data["accuracy_history"].append(verification_results)
+    #         self._save_project(project_data)
+
+    #         return result
+    #     return wrapper
