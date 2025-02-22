@@ -89,6 +89,13 @@ class EnhancedRelevanceAnalyzer:
         except Exception as e:
             print(f"Warning: Could not initialize spaCy ({str(e)}). Falling back to basic analysis.")
             return None
+        
+    def check_title_jd_match(self, job_title, jd_text, threshold=0.45):
+        """Check semantic match between job title and JD using sentence transformers"""
+        title_embed = self.semantic_model.encode([job_title], convert_to_tensor=True)
+        jd_embed = self.semantic_model.encode([jd_text[:5000]], convert_to_tensor=True)  # Use first 5000 chars for efficiency
+        similarity = cosine_similarity(title_embed, jd_embed)[0][0]
+        return similarity >= threshold
 
     def calculate_question_scores(self, job_description, questions):
         """
@@ -124,6 +131,8 @@ class EnhancedRelevanceAnalyzer:
             semantic_score = self._calculate_semantic_score(jd_clean, questions_clean[i])
             keyword_score = self._calculate_keyword_score(jd_keywords, question)
             
+            question_words = set(self._clean_text(question).split())
+            keyword_overlap = len(jd_keywords & question_words)
             # Calculate additional scores if spaCy is available
             if self.nlp:
                 entity_score = self._calculate_entity_score(jd_entities, question)
@@ -146,7 +155,7 @@ class EnhancedRelevanceAnalyzer:
                 )
             
             # Normalize and boost the final score
-            final_score = self._normalize_and_boost_score(weighted_score)
+            final_score = self._normalize_and_boost_score(weighted_score, keyword_overlap)
             scores.append(final_score)
             
         return [round(score * 100, 2) for score in scores]
@@ -163,11 +172,19 @@ class EnhancedRelevanceAnalyzer:
         return cosine_similarity(jd_embedding, question_embedding)[0][0]
     
     def _calculate_keyword_score(self, jd_keywords, question):
-        """Calculate keyword overlap score."""
+        """Enhanced keyword scoring with threshold-based boosting"""
         question_words = set(self._clean_text(question).split())
         overlap = len(jd_keywords & question_words)
-        # Adjusted threshold for better scoring
-        return min(1.0, overlap / max(len(jd_keywords) * 0.3, 1))
+        
+        # Base score calculation
+        base_score = min(1.0, overlap / max(len(jd_keywords)*0.25, 1))
+        
+        # Threshold-based boosting
+        if overlap >= 3:  # Absolute threshold
+            base_score = min(1.0, base_score * 1.25)
+        if len(question_words) > 0 and (overlap/len(question_words)) >= 0.25:  # Relative threshold
+            base_score = min(1.0, base_score * 1.15)
+        return base_score
     
     def _calculate_entity_score(self, jd_entities, question):
         """Calculate named entity overlap score."""
@@ -193,15 +210,16 @@ class EnhancedRelevanceAnalyzer:
         phrase_overlap = len(jd_phrases & question_phrases) / max(len(jd_phrases), 1)
         return min(1.0, phrase_overlap * 1.5)
     
-    def _normalize_and_boost_score(self, score):
-        """Apply normalization and boosting to the final score."""
-        # Sigmoid normalization to compress extreme values
-        normalized = 1 / (1 + np.exp(-5 * (score - 0.5)))
+    def _normalize_and_boost_score(self, score,keyword_overlap):
+        """Enhanced normalization with keyword-based boosting"""
+        # Sigmoid normalization
+        normalized = 1 / (1 + np.exp(-6 * (score - 0.5)))
         
-        # Apply boosting for scores above threshold
-        if score > 0.3:
-            boost_factor = 1.2
-            normalized = min(1.0, normalized * boost_factor)
+        # Additional boost based on keyword overlap
+        if keyword_overlap >= 2:
+            normalized = min(1.0, normalized * 1.1)
+        if keyword_overlap >= 4:
+            normalized = min(1.0, normalized * 1.15)
         
         return normalized
     

@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 import sys
-
+import numpy as np
 # Adjust the system path to find project modules
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
@@ -27,6 +27,11 @@ def main():
         with st.spinner("Analyzing Job Description..."):
             jd_text = extract_text_from_file(jd_file)
             
+            with st.spinner("Validating Job Description..."):
+                if not analyzer.check_title_jd_match(job_role, jd_text):
+                    st.error("⚠️ Job description doesn't match the job title! Upload a relevant JD.")
+                    st.stop()
+            
             # Generate questions
             questions = client.generate_questions(job_role, jd_text)
             
@@ -43,10 +48,8 @@ def main():
             count_above_half = sum(1 for s in scores if s > half_avg)
             overall_relevance = (count_above_half / len(scores)) * 100
             
-            # Display metrics (without individual question scores or plots)
             st.subheader("Analysis Results")
             st.metric("Overall Relevance", f"{overall_relevance:.1f}%")
-            st.metric("Total Questions", len(question_list))
             
             # Export data for reference if needed
             export_data = "\n".join(
@@ -61,4 +64,4 @@ def main():
             )
 
 if __name__ == "__main__":
-    main()
+    main() 
