@@ -25,13 +25,21 @@ class GroqClient:
 
     def _build_prompt(self, job_role, job_description):
         return f"""
-        Generate 10-15 comprehensive interview questions for a {job_role} position. 
+        Generate 10-15 comprehensive interview questions for a {job_role} position.
         Include both technical and behavioral questions.
         Focus on these key aspects from the job description:
         {job_description}
-        
+
+        For technical questions:
+        - Analyze the role and job description to determine the relevant technical domains and skills required.
+        - Generate questions that assess role-specific technical competencies, such as coding challenges, data structures, algorithms, system design, analytical reasoning, or other domain-specific problem solving.
+        - Ensure these questions reflect real-world scenarios and practical challenges pertinent to the position.
+
+        For behavioral questions:
+        - Include questions that evaluate soft skills, teamwork, communication, problem-solving approaches, and cultural fit.
+
         Format requirements:
-        - Each question should be numbered
-        - Separate technical and behavioral sections
-        - Avoid any markdown formatting
+        - Each question should be numbered.
+        - Separate technical and behavioral sections.
+        - Avoid any markdown formatting.
         """
