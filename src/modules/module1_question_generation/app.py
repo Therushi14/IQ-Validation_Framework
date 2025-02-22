@@ -1,6 +1,6 @@
 import streamlit as st
-from src.modules.module1_question_generation.file_processing import extract_text_from_file
-from src.modules.module1_question_generation.groq_client import GroqClient
+from file_processing import extract_text_from_file
+from groq_client import GroqClient
 
 def main():
     st.title("AI Interview Question Generator")
