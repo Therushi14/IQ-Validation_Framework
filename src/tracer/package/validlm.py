@@ -33,7 +33,7 @@ class ValidLM:
                     "deterministic": [],
                     "misc": [],
                     "factual": False,
-                    "contains-sql": False,
+                    "sql-only": False,
                     "knowledgebase": None
                 },
                 "log_history": [],
@@ -67,12 +67,12 @@ class ValidLM:
 
     def add_assertion(self, assertion_type, assertion):
         """Add an assertion to the project file"""
-        valid_types = {"deterministic", "factual", "misc", "contains-sql", "knowledgebase"}
+        valid_types = {"deterministic", "factual", "misc", "sql-only", "knowledgebase"}
         if assertion_type not in valid_types:
             raise ValueError(f"Invalid assertion type. Choose from {valid_types}")
 
         project_data = self._load_project()
-        if assertion_type in {"factual", "contains-sql"}:
+        if assertion_type in {"factual", "sql-only"}:
             project_data["assertions"][assertion_type] = assertion
         elif assertion_type == "knowledgebase":
             project_data["assertions"]["knowledgebase"] = assertion

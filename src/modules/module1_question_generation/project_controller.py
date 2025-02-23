@@ -25,7 +25,7 @@ class Project:
     def initialize_project(self,project_name):
         data = {
             "project_name": project_name,
-            "assertions": {"deterministic": [], "misc": [], "factual": "", "contains-sql": False},
+            "assertions": {"deterministic": [], "misc": [], "factual": "", "sql-only": False, "json-only": False},
             "log_history": [],
             "accuracy_history": {
                 "DSA" : [],

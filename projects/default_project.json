@@ -4,7 +4,9 @@
         "deterministic": [],
         "misc": [],
         "factual": false,
-        "contains-sql": false
+        "sql-only": false,
+        "json-only": false
+        
     },
     "log_history": [],
     "accuracy_history": []

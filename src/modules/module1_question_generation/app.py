@@ -4,6 +4,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import datetime
+import pandas as pd
 
 # Adjust the system path to find project modules
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -16,7 +17,8 @@ from file_processing import extract_text_from_file
 from src.modules.module3_compare.model import QuestionSimilarityModel
 from src.modules.module4_bias.bias import screen_questions
 from src.modules.module1_question_generation.project_controller import Project
-
+from src.modules.module1_question_generation.tool_controller import *
+DATASET_DIR = "dataset"
 project_control = Project()
 if 'page' not in st.session_state:
     st.session_state.page = 'main'
@@ -63,6 +65,8 @@ def sidebar():
                 st.session_state["current_project"] = project_data
             else:
                 st.sidebar.error("Failed to load project_control.")
+    if ('current_project' in st.session_state and  st.sidebar.button('Configure Project')):
+        st.session_state.page = 'configure'
 
 def main_page():
     client = GroqClient()
@@ -86,6 +90,11 @@ def main_page():
                 st.stop()
 
             questions = client.generate_questions(job_role, jd_text, question_type)
+
+            # Deterministic
+            d_results = verify_deterministic_assertions(questions, project["assertions"])
+            df_results = pd.DataFrame(list(d_results.items()), columns=["Assertion Type", "Result"])
+            st.table(df_results)
             question_lines = [q.strip() for q in questions.split('\n') if q.strip()]
             if question_lines and not question_lines[0][0].isdigit():
                 question_lines = question_lines[1:]
@@ -93,6 +102,7 @@ def main_page():
             # first_five_questions = question_lines[:10]
             # remaining_questions = question_lines[5:15]
             scores = []
+
             if (question_type == "DSA"): 
                 similarity_results = similarity_model.check_similarity(question_lines)
                 scores = similarity_results
@@ -110,6 +120,7 @@ def main_page():
                             for source in result['matched_sources']:
                                 st.write(f"- {source['title']} (Difficulty: {source['difficulty']})")
                 overall_similarity = score / len(question_lines)
+
                 st.metric("Overall Relevance", f"{overall_similarity*100:.1f}%")
                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 project['accuracy_history'][question_type].append((timestamp, overall_similarity))
@@ -163,23 +174,55 @@ def main_page():
             # for i, (question, score) in enumerate(zip(remaining_questions, scores[5:15]), 5):
             #     export_data.append(f"Q{i}. {question}")
             #     export_data.append("")
-
+            project_control.save_project(project["project_name"], project)
             st.download_button(
                 "Download Questions with Analysis",
-                f"Job Role: {job_role}\nOverall Relevance: {overall_relevance:.1f}%\n\n" + "\n".join(export_data),
+                f"Job Role: {job_role}\n\n\n" + "\n".join(export_data),
                 file_name=f"{job_role.replace(' ', '_')}_questions_analysis.txt",
                 mime="text/plain"
             )
 
 def configure_page():
     st.title("Project Configuration")
-
+    project = st.session_state['current_project']
     assertion_type = st.selectbox("Select Assertion Type", ["deterministic", "factual", "misc"])
-    check_type = st.text_input("Check Type (e.g., contains, regex, json)")
-    value = st.text_input("Assertion Value")
+    if assertion_type == "deterministic":
+        check_type = st.selectbox("Select Deterministic Check Type", ["regex", "json_format", "contains", "not-contains"])
+        check_value = st.text_area("Enter pattern")
+        if st.button("Add Deterministic Assertion") and check_value:
+            assertion_data = {
+                "check_type": check_type,
+                "value": check_value,
+            }
+            project["assertions"]["deterministic"].append(assertion_data)
+        
+            st.success("Deterministic Assertion added.")
+
+    elif assertion_type == "factual":
+        fact = st.file_uploader("Provide knowledgebase for factual assertion", type=["pdf", "docx"])
+        if st.button("Add") and fact:
+            project_id = project["project_name"]
+            file_extension = os.path.splitext(fact.name)[1]
+            # current working dir
+            saved_path = os.path.join(os.getcwd(), DATASET_DIR, f"{project_id}{file_extension}")
+            with open(saved_path, "wb") as f:
+                f.write(fact.getbuffer())
+            project["assertions"]["knowledgebase"] = saved_path
+            st.success("Factual Assertion added and file saved.")
+
+    elif assertion_type == "misc":
+        new_assertion = st.text_input("Add Miscellaneous Assertion")
+        if st.button("Add Miscellaneous Assertion") and new_assertion:
+            project["assertions"]["misc"].append(new_assertion)
+
+    if (st.checkbox('sql-only')):
+        project["assertions"]["sql-only"] = True
+    if (st.checkbox('json-only')):
+        project["assertions"]["json-only"] = True
 
     if st.button("Save Assertion"):
-        st.success(f"Assertion saved: {assertion_type} - {check_type}: {value}")
+        project_control.save_project(project["project_name"], project)
+        st.success(f"Assertion saved")
 
     if st.button("Go Back"):
         st.session_state.page = 'main'

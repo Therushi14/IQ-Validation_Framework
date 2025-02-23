@@ -14,7 +14,7 @@ class GroqClient:
 
     def generate_questions(self, job_role, job_description, type):
         prompt = self._build_prompt(job_role, job_description, type)
-        print(prompt)
+       
         response = self.client.chat.completions.create(
             model="llama3-70b-8192",
             messages=[{"role": "user", "content": prompt}],
