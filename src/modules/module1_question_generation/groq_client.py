@@ -26,6 +26,7 @@ class GroqClient:
     def _build_prompt(self, job_role, job_description):
         return f"""
         Generate 10-15 comprehensive interview questions for a {job_role} position.
+        First 3 questions must be based on DSA concepts
         Include both technical and behavioral questions.
         Focus on these key aspects from the job description:
         {job_description}

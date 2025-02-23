@@ -7,7 +7,6 @@ from sentence_transformers import SentenceTransformer
 import nltk
 from nltk.tokenize import word_tokenize
 
-
 class QuestionSimilarityModel:
     def __init__(self, dataset_path, cache_path='embeddings_cache.pkl'):
         self.dataset_path = dataset_path
@@ -58,9 +57,3 @@ class QuestionSimilarityModel:
                 }
             })
         return results
-
-# Example usage:
-model = QuestionSimilarityModel('dataset/leetcode_dataset.csv')
-new_questions = ["If john throws a ball at the speed of 5m/s vertically upwards, find the time it first reaches ground", "Implement a binary search algorithm"]
-result = model.check_similarity(new_questions)
-print(result)
