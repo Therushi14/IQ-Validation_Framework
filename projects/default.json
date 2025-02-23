@@ -1,0 +1,15 @@
+{
+    "project_name": "default",
+    "assertions": {
+        "deterministic": [],
+        "misc": [],
+        "factual": false,
+        "contains-sql": false
+    },
+    "log_history": [],
+    "accuracy_history": {
+        "DSA":[],
+        "Technical":[],
+        "Behaviour":[]
+    }
+}
