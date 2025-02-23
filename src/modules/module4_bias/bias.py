@@ -1,5 +1,4 @@
 import spacy
-from groq import Groq
 from textblob import TextBlob
 
 nlp = spacy.load('en_core_web_sm')
@@ -41,7 +40,6 @@ biased_terms = [
     "ugly", "unattractive", "plain", "homely", "unsightly"
 ]
 
-
 def screen_for_bias(question):
     doc = nlp(question)
     for token in doc:
@@ -56,6 +54,11 @@ def screen_for_offensive_language(question):
     return True  # Question is not offensive
 
 def screen_questions(questions):
+    """
+    Screens a list of questions for bias and offensive language.
+    Returns a tuple: (valid_questions, invalid_questions, accuracy)
+    where accuracy is the ratio of valid questions to total questions.
+    """
     valid_questions = []
     invalid_questions = []
     for question in questions:
@@ -63,19 +66,23 @@ def screen_questions(questions):
             valid_questions.append(question)
         else:
             invalid_questions.append(question)
+    
+    accuracy = len(valid_questions) / len(questions) if questions else 0
+    return valid_questions, invalid_questions, accuracy
 
-    print("Invalid question")
-    for question in invalid_questions:
-      print(question)
-    return valid_questions
-
-# Use the generated_questions from the first cell
-valid_questions = screen_questions(generated_questions)
-
-print("\nValid Questions:")
-for question in valid_questions:
-    print(question)
-
-count = len(valid_questions)
-accuracy = count/int(questionNumber)
-print('accuracy is ',accuracy*100)
+if __name__ == "__main__":
+    # For testing purposes: use a sample list of 4 questions.
+    generated_questions = [
+        "What motivated you to apply for this role?",
+        "How do you handle tight deadlines and manage stress?",
+        "Can you describe a challenging project you worked on?",
+        "Do you think being young gives you an edge in today's market?"
+    ]
+    valid, invalid, acc = screen_questions(generated_questions)
+    print("Valid Questions:")
+    for q in valid:
+        print(q)
+    print("\nInvalid Questions:")
+    for q in invalid:
+        print(q)
+    print('Accuracy is ', acc * 100)
