@@ -42,23 +42,24 @@ def main():
             
             # Analyze relevance
             scores = analyzer.calculate_question_scores(jd_text, question_list)
-            avg_score = sum(scores) / len(scores)
+            # avg_score = sum(scores) / len(scores)
+            avg_score = sum([i[0] for i in scores])/len(scores)
             
-            half_avg = avg_score /1.25
-            count_above_half = sum(1 for s in scores if s > half_avg)
+            half_avg = avg_score/2
+            count_above_half = sum(1 for s in scores if s[0] > half_avg)
             overall_relevance = (count_above_half / len(scores)) * 100
             
             st.subheader("Analysis Results")
-            st.metric("Overall Relevance", f"{overall_relevance:.1f}%")
+            st.metric("Output Relevance", f"{overall_relevance:.1f}%")
             
             # Export data for reference if needed
             export_data = "\n".join(
-                [f"Q{i+1}\t{score}\t{question}" 
-                 for i, (question, score) in enumerate(zip(question_list, scores))]
+                [f"Q{i+1}\t{result[0]}\t{result[1]} \t{question}" 
+                 for i, (question, result) in enumerate(zip(question_list, scores))]
             )
             st.download_button(
                 "Download Questions with Scores",
-                f"Job Role: {job_role}\nOverall Relevance: {overall_relevance:.1f}%\n\n{export_data}",
+                f"Job Role: {job_role}\n Output Relevance: {overall_relevance:.1f}%\n\n{export_data}",
                 file_name=f"{job_role.replace(' ', '_')}_questions_with_scores.tsv",
                 mime="text/tsv"
             )

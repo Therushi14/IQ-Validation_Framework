@@ -121,7 +121,8 @@ class ValidLM:
 
         """Run checks against stored assertions"""
         # 1. Deterministic
-        # 2. Fact correction
+        # 2. Fact correction (module 3)
+        # [Interview usecase] Relevance to prompt
         # 3. Misc check via llm
         # 4. Behaviour check
 

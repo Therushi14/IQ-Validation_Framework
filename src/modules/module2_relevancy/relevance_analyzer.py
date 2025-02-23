@@ -17,7 +17,8 @@ class NLTKResourceManager:
     REQUIRED_RESOURCES = [
         ('tokenizers/punkt', 'punkt'),
         ('corpora/stopwords', 'stopwords'),
-        ('tokenizers/punkt_tab', 'punkt_tab')
+        ('tokenizers/punkt_tab', 'punkt_tab'),
+        ('taggers/averaged_perceptron_tagger_eng', 'averaged_perceptron_tagger_eng')
     ]
     
     @staticmethod
@@ -65,7 +66,7 @@ class EnhancedRelevanceAnalyzer:
         )
         NLTKResourceManager.initialize_nltk_resources()
         self.semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
-        self.keyword_extractor = Rake()
+        self.keyword_extractor = Rake(min_length=1, max_length=1)
         
         # Initialize spaCy with proper error handling
         self.nlp = self._initialize_spacy()
@@ -96,7 +97,25 @@ class EnhancedRelevanceAnalyzer:
         jd_embed = self.semantic_model.encode([jd_text[:5000]], convert_to_tensor=True)  # Use first 5000 chars for efficiency
         similarity = cosine_similarity(title_embed, jd_embed)[0][0]
         return similarity >= threshold
+    
+    def extract_single_keywords(self, text):
+        """Extract single keywords using RAKE + NLTK POS tagging."""
+        # Step 1: RAKE for initial extraction
+        self.keyword_extractor.extract_keywords_from_text(text)
+        rake_phrases = set(self.keyword_extractor.get_ranked_phrases()[:20])
 
+        # Step 2: Use NLTK POS tagging for single-word nouns and proper nouns
+        words = nltk.word_tokenize(text)
+        pos_tags = nltk.pos_tag(words)
+
+        # Select nouns, proper nouns, and technical terms
+        single_keywords = {word.lower() for word, tag in pos_tags if tag in ['NN', 'NNS', 'NNP', 'NNPS']}
+
+        # Step 3: Combine RAKE keywords and POS nouns
+        combined_keywords = single_keywords.union(set(rake_phrases))
+
+        return combined_keywords
+    
     def calculate_question_scores(self, job_description, questions):
         """
         Calculate relevance scores for a list of questions against a job description.
@@ -109,8 +128,9 @@ class EnhancedRelevanceAnalyzer:
             list: List of relevance scores (0-100) for each question
         """
         # Extract key phrases using RAKE
-        self.keyword_extractor.extract_keywords_from_text(job_description)
-        jd_keywords = set(self.keyword_extractor.get_ranked_phrases()[:20])
+        # self.keyword_extractor.extract_keywords_from_text(job_description)
+        # jd_keywords = set(self.keyword_extractor.get_ranked_phrases()[:20])
+        jd_keywords = self.extract_single_keywords(job_description)
         print('HEYY')
         print(jd_keywords)
         # Extract entities if spaCy is available
@@ -124,7 +144,8 @@ class EnhancedRelevanceAnalyzer:
         questions_clean = [self._clean_text(q) for q in questions]
         
         # Calculate scores for each question
-        scores = []
+        # scores = []
+        results = []
         for i, question in enumerate(questions):
             # Calculate base scores
             tfidf_score = self._calculate_tfidf_score(jd_clean, questions_clean[i])
@@ -133,6 +154,8 @@ class EnhancedRelevanceAnalyzer:
             
             question_words = set(self._clean_text(question).split())
             keyword_overlap = len(jd_keywords & question_words)
+            matched_keywords = jd_keywords & question_words
+            print('Matched- ', matched_keywords)
             # Calculate additional scores if spaCy is available
             if self.nlp:
                 entity_score = self._calculate_entity_score(jd_entities, question)
@@ -140,25 +163,25 @@ class EnhancedRelevanceAnalyzer:
                 
                 # Combine all scores with weights
                 weighted_score = (
-                    tfidf_score * 0.15 +      # Term frequency importance
-                    semantic_score * 0.35 +    # Semantic meaning importance
-                    keyword_score * 0.20 +     # Keyword matching importance
-                    entity_score * 0.15 +      # Named entity importance
-                    context_score * 0.15       # Contextual relevance importance
+                    tfidf_score * 0.20 +      # Term frequency importance
+                    semantic_score * 0.30 +    # Semantic meaning importance
+                    keyword_score * 0.40 +     # Keyword matching importance
+                    entity_score * 0.05 +      # Named entity importance
+                    context_score * 0.05       # Contextual relevance importance
                 )
             else:
                 # Fallback scoring without spaCy-dependent components
                 weighted_score = (
-                    tfidf_score * 0.25 +
-                    semantic_score * 0.45 +
-                    keyword_score * 0.30
+                    tfidf_score * 0.15 +
+                    semantic_score * 0.40 +
+                    keyword_score * 0.45
                 )
             
             # Normalize and boost the final score
             final_score = self._normalize_and_boost_score(weighted_score, keyword_overlap)
-            scores.append(final_score)
-            
-        return [round(score * 100, 2) for score in scores]
+            # scores.append(final_score)
+            results.append((round(final_score * 100, 2), list(matched_keywords)))
+        return results
     
     def _calculate_tfidf_score(self, jd_text, question):
         """Calculate TF-IDF based similarity score."""
