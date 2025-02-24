@@ -1,0 +1,21 @@
+{
+    "project_name": "po",
+    "assertions": {
+        "deterministic": [],
+        "misc": [],
+        "factual": "",
+        "sql-only": false,
+        "json-only": false
+    },
+    "log_history": [],
+    "accuracy_history": {
+        "DSA": [],
+        "Technical": [],
+        "Behaviour": [
+            [
+                "2025-02-24 11:51:54",
+                0.7272727272727273
+            ]
+        ]
+    }
+}

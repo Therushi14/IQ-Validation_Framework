@@ -45,7 +45,7 @@ def screen_for_bias(question):
     for token in doc:
         if token.text.lower() in biased_terms:
             return False  # Question is biased
-    return True  # Question is unbiased
+    return True # Question is unbiased
 
 def screen_for_offensive_language(question):
     sentiment = TextBlob(question).sentiment
@@ -61,14 +61,17 @@ def screen_questions(questions):
     """
     valid_questions = []
     invalid_questions = []
+    validity = []
     for question in questions:
         if screen_for_bias(question) and screen_for_offensive_language(question):
             valid_questions.append(question)
+            validity.append(0)
         else:
             invalid_questions.append(question)
+            validity.append(1)
     
     accuracy = len(valid_questions) / len(questions) if questions else 0
-    return valid_questions, invalid_questions, accuracy
+    return valid_questions, invalid_questions, accuracy, validity
 
 if __name__ == "__main__":
     # For testing purposes: use a sample list of 4 questions.

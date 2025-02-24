@@ -44,7 +44,7 @@ def main():
 
 def sidebar():
     st.sidebar.title("Project Options")
-    project_action = st.sidebar.selectbox("Select Action", ["Create New Project", "Open Existing Project"])
+    project_action = st.sidebar.selectbox("Select Action", ["Open Existing Project", "Create New Project"])
     if project_action == "Create New Project":
         new_project_name = st.sidebar.text_input("Enter Project Name")
         print('Title: ', new_project_name)
@@ -125,12 +125,13 @@ def main_page():
                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 project['accuracy_history'][question_type].append((timestamp, overall_similarity))
 
-            if (question_type == "Technical" or question_type == "Behaviour"):
+            # if (question_type == "Technical" or question_type == "Behaviour"):
                 
-                for q in question_lines:
-                    st.write(f"- {q}")
+                
 
             if (question_type == "Technical"):
+                for q in question_lines:
+                    st.write(f"- {q}")
                 scores = analyzer.calculate_question_scores(jd_text, question_lines)
                 avg_score = sum(scores) / len(scores)
 
@@ -146,8 +147,13 @@ def main_page():
                 project['accuracy_history'][question_type].append((timestamp, overall_relevance))
 
             if question_type == "Behaviour": 
-                valid_bias_questions, invalid_bias_questions, bias_accuracy = screen_questions(question_lines)
+                valid_bias_questions, invalid_bias_questions, bias_accuracy, validity = screen_questions(question_lines)
+                for i, q in enumerate(question_lines):
+                    st.write(f"- {f'[Invalid {validity[i]:.2f}]' if validity[i] == 1 else f'[ Valid {validity[i]:.2f}]'} {q}")
+
                 st.metric("Bias Accuracy", f"{bias_accuracy * 100:.1f}%")
+                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                project['accuracy_history'][question_type].append((timestamp, bias_accuracy))
 
             # Plot accuracy history
             if project['accuracy_history']:

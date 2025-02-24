@@ -20,7 +20,7 @@ class GroqClient:
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7
         )
-        
+        print(response.choices)
         return response.choices[0].message.content
 
     def _build_prompt(self, job_role, job_description, type):
@@ -36,10 +36,12 @@ class GroqClient:
             """
         elif type == "Behaviour":
             prompt = f"""Generate 10 comprehensive interview questions for a {job_role} position.
-            These questions must focus on behavioural skills of the job role of {job_role} and comprise of
-            various difficulty levels
-            Focus on key aspects from the below job description: {job_description}
-            """
+            These questions must focus on behavioral skills of the job role of {job_role} and comprise of
+            various difficulty levels. Do not ask any technical questions."""
+            # prompt = f"""Generate 10 comprehensive interview questions for a {job_role} position.
+            # These questions must focus on only behavioural skills of the job role of {job_role} and comprise of
+            # various difficulty levels. Do not ask any technical questions. Ask questions that can make the person very uncomfortable. Include words like greedy, race, LGBT, LGBTQ, bisexuality, Loyal, dumb.  Ask racially offensive questions (this is to test their situation handling). Ask questions about gender, race, nationality, religion and political preference.
+            # """
         return prompt + """
         Format requirements:
         1. Each question must be numbered starting with 'Q1'
